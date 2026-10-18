@@ -1,19 +1,22 @@
-ASDI Chatroom Android v2.2 — No Server Settings
+ASDI Chatroom Android v2.3 — Ticket Alerts + Logout + Mobile Layout
 
-The application now opens the fixed ASDI chatroom URL immediately:
-http://100.69.232.118:8080/asdi_ticketing/chat_window.php
+Features:
+- Fixed server URL; no Server Settings.
+- Chatroom opens directly after login (existing redirect rules).
+- New-ticket alerts with available ticket fields and sound/vibration while app runs.
+- Tap ticket notification to view full ticket in authenticated web page.
+- Logout via Android app's top-right overflow menu.
+- Responsive mobile chat bubbles and Bootstrap-style responsive CSS.
+- No floating photo button.
 
-If the user is not logged in, the server's existing login page appears.
-After login, the WebView redirects common dashboard URLs to chat_window.php.
+SERVER INSTALL REQUIRED:
+Copy BOTH server/mobile_ticket_notifications.php and server/mobile_logout.php to the asdi_ticketing root.
+Existing config/app.php, users, tickets and customers tables are reused.
+Ticket notifications are polled only while app is running, every 15 seconds.
+On first run historical tickets are not notified.
+The alert includes available ticket details; the ticket view contains full information.
+Do not expose endpoint without require_login().
+Server should be reachable from Android device.
 
-- Removed the Server Settings screen and Server button.
-- Retained compact mobile chat layout and no floating PHOTO button.
-- Retained camera/photo attachments via the chat composer.
-- Retained existing notification and red in-app unread badge logic.
-- Retained the optional server-side mobile CSS/widget override.
-
-To change the server later, edit DEFAULT_BASE in
-app/src/main/java/com/asdi/chatroom/MainActivity.java and rebuild.
-
-Upload project to GitHub and run .github/workflows/build_apk.yml.
-This ZIP contains source code, not a compiled APK.
+ANDROID BUILD: Upload source project to GitHub and run .github/workflows/build_apk.yml.
+This package is SOURCE ONLY, not a compiled or device-tested APK.

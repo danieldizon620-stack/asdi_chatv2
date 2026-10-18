@@ -2,6 +2,10 @@ package com.asdi.chatroom;
 
 import android.Manifest;
 import android.app.Activity;
+import android.view.Menu;
+import android.view.MenuItem;
+import org.json.JSONArray;
+import android.webkit.CookieManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Notification;
@@ -48,6 +52,8 @@ public class MainActivity extends Activity {
   private int unread = 0;
   private boolean initialized = false;
   private boolean active = false;
+  private long lastTicketId = -1;
+  private static final String TICKET_CHANNEL = "asdi_new_tickets_v1";
 
   private final Runnable poll = new Runnable() {
     @Override public void run() {
@@ -59,7 +65,8 @@ public class MainActivity extends Activity {
           "ASDI.onMessages(String(id),String(mine.length));}}).catch(()=>{});})()";
         web.evaluateJavascript(js, null);
       }
-      handler.postDelayed(this, 10000);
+      pollTickets();
+      handler.postDelayed(this, 15000);
     }
   };
 
@@ -74,6 +81,13 @@ public class MainActivity extends Activity {
       channel.enableVibration(true);
       manager.createNotificationChannel(channel);
     }
+    if (Build.VERSION.SDK_INT >= 26) {
+      NotificationChannel ticketChannel = new NotificationChannel(TICKET_CHANNEL, "New service tickets", NotificationManager.IMPORTANCE_HIGH);
+      ticketChannel.setDescription("Detailed alerts for newly created ASDI tickets");
+      ticketChannel.enableVibration(true);
+      manager.createNotificationChannel(ticketChannel);
+    }
+    lastTicketId = getPreferences(0).getLong("ticket_last_" + base, -1);
     if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
       requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
     }
@@ -116,6 +130,9 @@ public class MainActivity extends Activity {
           final int incoming = Integer.parseInt(count);
           runOnUiThread(() -> updateMessages(newest, incoming));
         } catch (NumberFormatException ignored) { }
+      }
+      @JavascriptInterface public void onTickets(String json) {
+        runOnUiThread(() -> handleTickets(json));
       }
     }, "ASDI");
     web.setWebChromeClient(new WebChromeClient() {
@@ -163,6 +180,7 @@ public class MainActivity extends Activity {
       }
     });
     web.loadUrl(chatUrl);
+    handleIntent(getIntent());
     handler.postDelayed(poll, 10000);
   }
 
@@ -193,6 +211,84 @@ public class MainActivity extends Activity {
         "})()";
       view.evaluateJavascript(js, null);
     } catch (Exception ignored) { }
+  }
+
+
+  private void pollTickets() {
+    if (web == null || web.getUrl() == null || !web.getUrl().startsWith(base)) return;
+    String js = "(function(){fetch('mobile_ticket_notifications.php?after=" + Math.max(0,lastTicketId) +
+      "',{credentials:'same-origin',cache:'no-store'}).then(r=>r.ok?r.json():null)" +
+      ".then(j=>{if(j&&Array.isArray(j.tickets))ASDI.onTickets(JSON.stringify(j));}).catch(()=>{});})()";
+    web.evaluateJavascript(js, null);
+  }
+  private void handleTickets(String json) {
+    try {
+      JSONObject response = new JSONObject(json);
+      long latest = response.optLong("latest",0);
+      JSONArray tickets = response.optJSONArray("tickets");
+      if (lastTicketId < 0) {
+        lastTicketId = latest; // First run: do not alert on historical tickets.
+      } else if (tickets != null) {
+        for (int i=0;i<tickets.length();i++) {
+          JSONObject ticket = tickets.getJSONObject(i);
+          if (ticket.optLong("id") > lastTicketId) notifyTicket(ticket);
+        }
+        lastTicketId = Math.max(lastTicketId, latest);
+      }
+      getPreferences(0).edit().putLong("ticket_last_" + base,lastTicketId).apply();
+    } catch(Exception ignored) { }
+  }
+  private void notifyTicket(JSONObject ticket) {
+    if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return;
+    long id=ticket.optLong("id");
+    JSONObject fields=ticket.optJSONObject("fields");
+    StringBuilder details=new StringBuilder();
+    if(fields!=null) {
+      java.util.Iterator<String> keys=fields.keys();
+      while(keys.hasNext()) {
+        String key=keys.next();
+        if(details.length()>0)details.append("\n");
+        details.append(key).append(": ").append(fields.optString(key));
+      }
+    }
+    Intent open=new Intent(this,MainActivity.class);
+    open.setAction("ticket_"+id);
+    open.putExtra("open_ticket",base+"ticket_view.php?id="+id);
+    open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    PendingIntent pending=PendingIntent.getActivity(this,(int)(id%Integer.MAX_VALUE),open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+    Notification.Builder builder=Build.VERSION.SDK_INT>=26 ? new Notification.Builder(this,TICKET_CHANNEL) : new Notification.Builder(this);
+    builder.setSmallIcon(android.R.drawable.ic_dialog_info)
+      .setContentTitle(ticket.optString("title","New ASDI ticket"))
+      .setContentText(fields==null?"Tap to view ticket":fields.optString("Customer","Tap to view ticket"))
+      .setStyle(new Notification.BigTextStyle().bigText(details.toString()))
+      .setContentIntent(pending).setAutoCancel(true);
+    ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify((int)(30000+id%100000),builder.build());
+  }
+  private void handleIntent(Intent intent) {
+    if(intent!=null && intent.hasExtra("open_ticket") && web!=null) {
+      String url=intent.getStringExtra("open_ticket");
+      if(url!=null && url.startsWith(base+"ticket_view.php?id=")) web.loadUrl(url);
+    }
+  }
+  @Override public boolean onCreateOptionsMenu(Menu menu) {
+    menu.add(0,1,0,"Chatroom");
+    menu.add(0,2,1,"Logout");
+    return true;
+  }
+  @Override public boolean onOptionsItemSelected(MenuItem item) {
+    if(item.getItemId()==1) { web.loadUrl(chatUrl); return true; }
+    if(item.getItemId()==2) {
+      new AlertDialog.Builder(this).setTitle("Log out?")
+        .setMessage("End your ASDI session on this device?")
+        .setNegativeButton("Cancel",null)
+        .setPositiveButton("Logout",(d,w)->{
+          web.evaluateJavascript("fetch('mobile_logout.php',{method:'POST',credentials:'same-origin'}).finally(()=>{window.location.href='login.php';})",null);
+          initialized=false;lastSeen=0;lastTicketId=-1;clearBadge();
+          getPreferences(0).edit().remove("last_seen_"+base).remove("ticket_last_"+base).apply();
+        }).show();
+      return true;
+    }
+    return super.onOptionsItemSelected(item);
   }
 
   private int dp(int v) { return (int)(v * getResources().getDisplayMetrics().density + .5f); }
@@ -229,7 +325,7 @@ public class MainActivity extends Activity {
       .build();
     ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(2001, n);
   }
-  @Override protected void onNewIntent(Intent intent) { super.onNewIntent(intent); clearBadge(); }
+  @Override protected void onNewIntent(Intent intent) { super.onNewIntent(intent); handleIntent(intent); clearBadge(); }
   private void clearBadge() {
     unread = 0;
     if (badge != null) badge.setVisibility(View.GONE);
