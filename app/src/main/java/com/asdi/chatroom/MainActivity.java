@@ -110,19 +110,8 @@ public class MainActivity extends Activity {
     sp.setMargins(dp(8), dp(8), 0, 0);
     root.addView(settingsButton, sp);
     settingsButton.setOnClickListener(v -> showServerSettings());
-    cameraButton = new Button(this);
-    cameraButton.setText("📷 PHOTO");
-    cameraButton.setTextColor(Color.WHITE);
-    cameraButton.setTextSize(11);
-    cameraButton.setAllCaps(false);
-    GradientDrawable cameraBg = new GradientDrawable();
-    cameraBg.setColor(0xFFE02030);
-    cameraBg.setCornerRadius(dp(24));
-    cameraButton.setBackground(cameraBg);
-    FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(dp(96), dp(46), Gravity.BOTTOM | Gravity.RIGHT);
-    cp.setMargins(0, 0, dp(14), dp(22));
-    root.addView(cameraButton, cp);
-    cameraButton.setOnClickListener(v -> web.evaluateJavascript("(function(){var c=document.getElementById('asdi-camera');if(c)c.click();else{var f=document.getElementById('chat-screenshot');if(f)f.click();}})()", null));
+    // Photo capture is available from the chat composer attachment picker.
+    // No floating button is displayed over the conversation.
     setContentView(root);
 
     web.getSettings().setJavaScriptEnabled(true);
@@ -209,7 +198,7 @@ public class MainActivity extends Activity {
   private void showServerSettings() {
     if (settingsPanel != null) return;
     web.setVisibility(View.GONE);
-    cameraButton.setVisibility(View.GONE);
+
     settingsButton.setVisibility(View.GONE);
     badge.setVisibility(View.GONE);
     settingsPanel = new LinearLayout(this);
@@ -251,7 +240,7 @@ public class MainActivity extends Activity {
       root.removeView(settingsPanel);
       settingsPanel = null;
       web.setVisibility(View.VISIBLE);
-      cameraButton.setVisibility(View.VISIBLE);
+
       settingsButton.setVisibility(View.VISIBLE);
       web.loadUrl(chatUrl);
     });
