@@ -1,0 +1,14 @@
+/* ASDI v1.6 conservative mobile adjustments for existing PHP pages. */
+@media (max-width: 768px) {
+  html,body { max-width:100%!important; overflow-x:hidden!important; -webkit-text-size-adjust:100%; }
+  *,*::before,*::after { box-sizing:border-box; }
+  img,video,iframe { max-width:100%!important; }
+  .container,.container-fluid,.row,.card,.card-body,.modal-dialog { max-width:100%!important; }
+  .container,.container-fluid { padding-left:10px!important; padding-right:10px!important; }
+  .row { margin-left:-5px!important; margin-right:-5px!important; }
+  .col,.col-md-6,.col-md-8,.col-md-9,.col-lg-6,.col-lg-8,.col-lg-9 { min-width:0!important; }
+  input,textarea,select { max-width:100%!important; font-size:16px!important; }
+  .table-responsive { overflow-x:auto!important; }
+  .chat-messages,.messages,.message-list,#messages,#chatMessages { overflow-wrap:anywhere; }
+  .message,.chat-message,.message-bubble { max-width:88vw!important; overflow-wrap:anywhere; }
+}
