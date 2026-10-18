@@ -28,11 +28,6 @@ import android.webkit.ValueCallback;
 import android.provider.MediaStore;
 import android.webkit.PermissionRequest;
 import android.webkit.WebSettings;
-import android.widget.LinearLayout;
-import android.widget.Button;
-import android.widget.EditText;
-import android.content.SharedPreferences;
-import android.text.InputType;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import org.json.JSONObject;
@@ -44,10 +39,7 @@ public class MainActivity extends Activity {
   private static final String CHANNEL = "asdi_chat_messages";
   private WebView web;
   private TextView badge;
-  private Button cameraButton;
-  private Button settingsButton;
   private FrameLayout root;
-  private LinearLayout settingsPanel;
   private ValueCallback<Uri[]> fileCallback;
   private Uri pendingPhoto;
   private static final int FILE_PICKER_REQUEST = 620;
@@ -59,7 +51,7 @@ public class MainActivity extends Activity {
 
   private final Runnable poll = new Runnable() {
     @Override public void run() {
-      if (active && web != null && web.getUrl() != null && web.getUrl().startsWith(base) && settingsPanel == null) {
+      if (active && web != null && web.getUrl() != null && web.getUrl().startsWith(base)) {
         String js = "(function(){fetch('group_chat.php',{credentials:'same-origin',cache:'no-store'})" +
           ".then(r=>r.ok?r.json():null).then(j=>{if(j&&Array.isArray(j.messages)){" +
           "let messages=j.messages;let id=messages.reduce((m,x)=>Math.max(m,Number(x.id)||0),0);" +
@@ -73,7 +65,6 @@ public class MainActivity extends Activity {
 
   @Override public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    base = getPreferences(0).getString("server_base", DEFAULT_BASE);
     chatUrl = base + "chat_window.php";
     lastSeen = getPreferences(0).getLong("last_seen_" + base, 0);
     NotificationManager manager = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
@@ -104,12 +95,6 @@ public class MainActivity extends Activity {
     FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.RIGHT);
     bp.setMargins(0, dp(10), dp(10), 0);
     root.addView(badge, bp);
-    settingsButton = new Button(this);
-    settingsButton.setText("⚙ Server");
-    FrameLayout.LayoutParams sp = new FrameLayout.LayoutParams(dp(112), dp(44), Gravity.TOP | Gravity.LEFT);
-    sp.setMargins(dp(8), dp(8), 0, 0);
-    root.addView(settingsButton, sp);
-    settingsButton.setOnClickListener(v -> showServerSettings());
     // Photo capture is available from the chat composer attachment picker.
     // No floating button is displayed over the conversation.
     setContentView(root);
@@ -177,7 +162,7 @@ public class MainActivity extends Activity {
         if (url != null && (url.equals(base) || url.equals(base + "index.php") || url.equals(base + "dashboard.php"))) view.loadUrl(chatUrl);
       }
     });
-    showServerSettings();
+    web.loadUrl(chatUrl);
     handler.postDelayed(poll, 10000);
   }
 
@@ -193,58 +178,6 @@ public class MainActivity extends Activity {
     fileCallback.onReceiveValue(result);
     fileCallback = null;
     pendingPhoto = null;
-  }
-
-  private void showServerSettings() {
-    if (settingsPanel != null) return;
-    web.setVisibility(View.GONE);
-
-    settingsButton.setVisibility(View.GONE);
-    badge.setVisibility(View.GONE);
-    settingsPanel = new LinearLayout(this);
-    settingsPanel.setOrientation(LinearLayout.VERTICAL);
-    settingsPanel.setPadding(dp(22), dp(36), dp(22), dp(22));
-    settingsPanel.setBackgroundColor(Color.WHITE);
-    TextView title = new TextView(this);
-    title.setText("ASDI Chatroom\nServer Settings");
-    title.setTextColor(0xFFB71927);
-    title.setTextSize(24);
-    settingsPanel.addView(title);
-    TextView help = new TextView(this);
-    help.setText("Enter the ASDI Ticketing server address. You can change it later using ⚙ Server.\nExample: http://100.69.232.118:8080/asdi_ticketing/");
-    help.setPadding(0, dp(20), 0, dp(12));
-    settingsPanel.addView(help);
-    EditText address = new EditText(this);
-    address.setSingleLine(true);
-    address.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-    address.setText(base);
-    address.setSelectAllOnFocus(true);
-    settingsPanel.addView(address);
-    Button connect = new Button(this);
-    connect.setText("Save & Connect to Chatroom");
-    settingsPanel.addView(connect);
-    connect.setOnClickListener(v -> {
-      String input = address.getText().toString().trim();
-      if (!input.endsWith("/")) input += "/";
-      Uri u = Uri.parse(input);
-      if (!("http".equals(u.getScheme()) || "https".equals(u.getScheme())) || u.getHost() == null || !u.getPath().endsWith("/asdi_ticketing/")) {
-        address.setError("Use a full http(s) URL ending in /asdi_ticketing/");
-        return;
-      }
-      base = input;
-      chatUrl = base + "chat_window.php";
-      getPreferences(0).edit().putString("server_base", base).apply();
-      lastSeen = getPreferences(0).getLong("last_seen_" + base, 0);
-      initialized = false;
-      unread = 0;
-      root.removeView(settingsPanel);
-      settingsPanel = null;
-      web.setVisibility(View.VISIBLE);
-
-      settingsButton.setVisibility(View.VISIBLE);
-      web.loadUrl(chatUrl);
-    });
-    root.addView(settingsPanel, new FrameLayout.LayoutParams(-1, -1));
   }
 
   private void applyMobileCss(WebView view) {
@@ -302,7 +235,7 @@ public class MainActivity extends Activity {
     if (badge != null) badge.setVisibility(View.GONE);
     ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).cancel(2001);
   }
-  @Override protected void onResume() { super.onResume(); active = true; if (settingsPanel == null) clearBadge(); }
+  @Override protected void onResume() { super.onResume(); active = true; clearBadge(); }
   @Override protected void onPause() { super.onPause(); }
   @Override public void onBackPressed() { if (web != null && web.canGoBack()) web.goBack(); else super.onBackPressed(); }
   @Override protected void onDestroy() { active = false; handler.removeCallbacksAndMessages(null); if (web != null) web.destroy(); super.onDestroy(); }
