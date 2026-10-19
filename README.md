@@ -1,22 +1,26 @@
-ASDI Chatroom Android v2.3 — Ticket Alerts + Logout + Mobile Layout
+ASDI Chatroom v2.4 — Unified (+) Composer Menu
 
-Features:
-- Fixed server URL; no Server Settings.
-- Chatroom opens directly after login (existing redirect rules).
-- New-ticket alerts with available ticket fields and sound/vibration while app runs.
-- Tap ticket notification to view full ticket in authenticated web page.
-- Logout via Android app's top-right overflow menu.
-- Responsive mobile chat bubbles and Bootstrap-style responsive CSS.
-- No floating photo button.
+The chat composer now has one (+) button for:
+- Attach file or photo
+- Take photo
+- Emojis (including animated emojis)
+- Remove attached file (only visible when relevant)
+- Cancel replacement (only visible when relevant)
 
-SERVER INSTALL REQUIRED:
-Copy BOTH server/mobile_ticket_notifications.php and server/mobile_logout.php to the asdi_ticketing root.
-Existing config/app.php, users, tickets and customers tables are reused.
-Ticket notifications are polled only while app is running, every 15 seconds.
-On first run historical tickets are not notified.
-The alert includes available ticket details; the ticket view contains full information.
-Do not expose endpoint without require_login().
-Server should be reachable from Android device.
+The original message-sending, attachment, emoji, replacement, deletion and notification logic is retained.
+The floating PHOTO button remains removed.
 
-ANDROID BUILD: Upload source project to GitHub and run .github/workflows/build_apk.yml.
-This package is SOURCE ONLY, not a compiled or device-tested APK.
+INSTALL SERVER:
+Back up the existing group_chat_widget.php and copy
+server/group_chat_widget.php to your asdi_ticketing directory.
+This is REQUIRED because the APK displays the server-hosted PHP chat interface.
+
+ANDROID:
+This ZIP also includes the Android v2.3 source project unchanged.
+Upload project root to GitHub and run the build workflow if you want to rebuild the APK.
+If only the PHP widget is updated, existing installed APKs can display the new composer
+after refreshing the chat page, without reinstalling the APK.
+
+The user-provided ZIP contained only app-debug.apk (a compiled APK), not editable source.
+The included Android source comes from the previously developed v2.3 project.
+This is source, not a compiled or tested APK.
